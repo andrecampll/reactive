@@ -1,43 +1,46 @@
 const { from, Observable } = require('rxjs');
 
-function createPipeableOperator(nextGenerator) {
+function createPipeableOperator(operatorFn) {
   return function(source) {
     return new Observable((subscriber) => {
-      source.subscribe({
-        next: nextGenerator(subscriber),
-      });
+      source.subscribe(operatorFn(subscriber));
     });
   }
 }
 
 function first() {
-  return createPipeableOperator((subscriber) => {
-    return (value) => {
+  return createPipeableOperator((subscriber) => ({
+    next(value) {
       subscriber.next(value);
       subscriber.complete();
-    };
-  });
+    }
+  }));
 }
 
 function last() {
-  return function(source) {
-    return new Observable((subscriber) => {
-      let last;
+  let last;
 
-      source.subscribe({
-        next(value) {
-          last = value;
-        },
-        complete() {
-          subscriber.next(last);
-          subscriber.complete();
-        }
-      });
-    });
-  }
+  return createPipeableOperator((subscriber) => ({
+    next(value) {
+      last = value;
+    },
+    complete() {
+      subscriber.next(last);
+      subscriber.complete();
+    }
+  }));
+}
+
+function nothing() {
+  return createPipeableOperator((subscriber) => ({
+    next() {
+      subscriber.complete();
+    }
+  }));
 }
 
 from([1, 2, 3, 4, 5])
   .pipe(first())
-  // .pipe(last())
+  .pipe(last())
+  .pipe(nothing())
   .subscribe(console.log);
